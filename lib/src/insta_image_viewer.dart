@@ -19,6 +19,8 @@ class InstaImageViewer extends StatelessWidget {
     this.backgroundIsTransparent = true,
     this.disposeLevel,
     this.disableSwipeToDismiss = false,
+    this.onStart, // Added onStart callback
+    this.onDismiss, // Added onDismiss callback
   }) : super(key: key);
 
   /// Image widget
@@ -46,6 +48,12 @@ class InstaImageViewer extends StatelessWidget {
   /// - it gives more predictable behaviour
   final bool disableSwipeToDismiss;
 
+  /// Callback when viewer starts
+  final VoidCallback? onStart;
+
+  /// Callback when viewer is dismissed
+  final VoidCallback? onDismiss;
+
   @override
   Widget build(BuildContext context) {
     final UniqueKey tag = UniqueKey();
@@ -53,6 +61,7 @@ class InstaImageViewer extends StatelessWidget {
       tag: tag,
       child: GestureDetector(
         onTap: () {
+          onStart?.call(); // Call onStart callback
           if (imageUrl != null) {
             Navigator.push(
               context,
@@ -64,6 +73,7 @@ class InstaImageViewer extends StatelessWidget {
                 pageBuilder: (BuildContext context, _, __) {
                   return FullScreenViewer(
                     tag: tag,
+                    onDismiss: onDismiss, // Pass onDismiss to FullScreenViewer
                     child: Image.network(
                       imageUrl!,
                       headers: headers,
@@ -100,6 +110,7 @@ class InstaImageViewer extends StatelessWidget {
                 pageBuilder: (BuildContext context, _, __) {
                   return FullScreenViewer(
                     tag: tag,
+                    onDismiss: onDismiss, // Pass onDismiss to FullScreenViewer
                     child: child,
                     backgroundColor: backgroundColor,
                     backgroundIsTransparent: backgroundIsTransparent,
@@ -128,6 +139,7 @@ class FullScreenViewer extends StatefulWidget {
     this.backgroundColor = Colors.black,
     this.backgroundIsTransparent = true,
     this.disposeLevel = DisposeLevel.medium,
+    this.onDismiss, // Added onDismiss callback
   }) : super(key: key);
 
   final Widget child;
@@ -136,6 +148,7 @@ class FullScreenViewer extends StatefulWidget {
   final DisposeLevel? disposeLevel;
   final UniqueKey tag;
   final bool disableSwipeToDismiss;
+  final VoidCallback? onDismiss;
 
   @override
   _FullScreenViewerState createState() => _FullScreenViewerState();
@@ -143,15 +156,10 @@ class FullScreenViewer extends StatefulWidget {
 
 class _FullScreenViewerState extends State<FullScreenViewer> {
   double? _initialPositionY = 0;
-
   double? _currentPositionY = 0;
-
   double _positionYDelta = 0;
-
   double _opacity = 1;
-
   double _disposeLimit = 150;
-
   Duration _animationDuration = Duration.zero;
 
   @override
@@ -186,6 +194,7 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
 
   _dragEnd(DragEndDetails details) {
     if (_positionYDelta > _disposeLimit || _positionYDelta < -_disposeLimit) {
+      widget.onDismiss?.call(); // Call onDismiss callback before popping
       Navigator.of(context).pop();
     } else {
       setState(() {
@@ -276,7 +285,10 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(0, 60, 30, 0),
                   child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: () {
+                      widget.onDismiss?.call(); // Call onDismiss callback before popping
+                      Navigator.of(context).pop();
+                    },
                     child: Container(
                       width: 40,
                       height: 40,
@@ -305,7 +317,6 @@ class _FullScreenViewerState extends State<FullScreenViewer> {
 }
 
 class KeymotionGestureDetector extends StatelessWidget {
-  /// @macro
   const KeymotionGestureDetector({
     Key? key,
     required this.child,
@@ -321,20 +332,18 @@ class KeymotionGestureDetector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RawGestureDetector(child: child, gestures: <Type,
-        GestureRecognizerFactory>{
-      VerticalDragGestureRecognizer:
-          GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
-        () => VerticalDragGestureRecognizer()
-          ..onStart = onStart
-          ..onUpdate = onUpdate
-          ..onEnd = onEnd,
-        (instance) {},
-      ),
-      // DoubleTapGestureRecognizer: GestureRecognizerFactoryWithHandlers<DoubleTapGestureRecognizer>(
-      //   () => DoubleTapGestureRecognizer()..onDoubleTap = onDoubleTap,
-      //   (instance) {},
-      // )
-    });
+    return RawGestureDetector(
+      child: child,
+      gestures: <Type, GestureRecognizerFactory>{
+        VerticalDragGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
+          () => VerticalDragGestureRecognizer()
+            ..onStart = onStart
+            ..onUpdate = onUpdate
+            ..onEnd = onEnd,
+          (instance) {},
+        ),
+      },
+    );
   }
 }
